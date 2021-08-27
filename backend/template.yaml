@@ -1,0 +1,341 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AWS Flutter Example
+
+  How to implement Flutter and AWS Integrated Systems from Scratch
+
+  Sources:
+  https://github.com/sky-big/fscli/tree/81e15cef7f766bb8f3bbfd9977e563c14e25bd92/bak/aws-sam-cli/tests/functional/commands/validate/lib/models
+
+Globals:
+  Function:
+    Timeout: 90
+    MemorySize: 512
+    Tracing: Active # POWERTOOLS
+    Layers:
+      - !Sub "arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension:14"
+      - !GetAtt AwsLambdaPowertoolsPythonLayer.Outputs.LayerVersionArn
+      - !Sub "arn:aws:lambda:us-east-1:668099181075:layer:AWSLambda-Python-AWS-SDK:4"
+      - !Sub "arn:aws:lambda:us-east-1:025408357061:layer:Requests:2"
+    Environment:
+      Variables:
+        VERSION: "0.1"
+        STAGE: !Ref Stage
+        ENT_AWS_REGION: us-east-1
+        CHARSET: UTF-8
+        LOG_LEVEL: INFO
+        LAMBDA_INSIGHTS_LOG_LEVEL: info
+        POWERTOOLS_LOGGER_SAMPLE_RATE: 0.1
+        POWERTOOLS_SERVICE_NAME: FLUTTER_AWS
+        POWERTOOLS_METRICS_NAMESPACE: FLUTTER_AWS
+        CURRENT_AWS_REGION: us-east-1
+        EXPENSES_TABLE: !Sub Flutter-AWS-Expense-${Stage}
+
+  Api:
+    TracingEnabled: true
+    EndpointConfiguration: REGIONAL
+    MethodSettings:
+      - MetricsEnabled: True
+        ResourcePath: "/*"
+        HttpMethod: "*"
+        ThrottlingRateLimit: 100
+        ThrottlingBurstLimit: 50
+    Auth:
+      DefaultAuthorizer: AWS_IAM # https://www.youtube.com/watch?v=KXyATZctkmQ
+      ApiKeyRequired: false
+      # InvokeRole: CALLER_CREDENTIALS
+      # AddDefaultAuthorizerToCorsPreflight: False
+
+Parameters:
+  NotificationEmail:
+    Description: Email address used to send alarm notifications
+    Type: String
+    Default: "jonasrgoes@gmail.com"
+
+  NotificationSMS:
+    Description: SMS address used to send alarm notifications
+    Type: String
+    Default: "+5541999049150"
+
+  Stage:
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Default: dev
+    Description: "What environment is this?"
+    Type: String
+
+Resources:
+  AwsLambdaPowertoolsPythonLayer:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:eu-west-1:057560766410:applications/aws-lambda-powertools-python-layer
+        SemanticVersion: 1.10.2 # change to latest semantic version available in SAR
+
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - apigateway.amazonaws.com
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy"
+        - "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+      Policies:
+        - PolicyName: Allow-DynamoDB
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt ExpensesTable.Arn
+        - PolicyName: Allow-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+  MyAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub Flutter-AWS-${Stage}
+      StageName: !Ref Stage
+      BinaryMediaTypes:
+        - image~1png
+      Auth:
+        DefaultAuthorizer: AWS_IAM
+      DefinitionBody: # The best way to create this "DefinitionBody" is to enter the AWS console and go to API Gateway, select your API and create the resources. After creating, export to Stages, ${Stage}, Export, Swagger, YAML.
+        swagger: "2.0"
+        info:
+          version: "1.0.1"
+          title: "Flutter AWS API"
+          description: "API"
+        basePath: !Sub "/${Stage}"
+        schemes:
+          - "https"
+        x-amazon-apigateway-request-validator: all
+        x-amazon-apigateway-request-validators:
+          all:
+            validateRequestBody: true
+            validateRequestParameters: true
+        consumes:
+          - application/json
+        produces:
+          - application/json
+        securityDefinitions:
+          sigv4:
+            type: "apiKey"
+            name: "Authorization"
+            in: "header"
+            x-amazon-apigateway-authtype: "awsSigv4"
+        definitions:
+          Empty:
+            type: "object"
+            title: "Empty Schema"
+          AddExpense:
+            type: "object"
+            required:
+              - "date"
+              - "email"
+              - "value"
+            properties:
+              date:
+                type: "string"
+              value:
+                type: "number"
+              email:
+                type: "string"
+        paths:
+          "/expense/list":
+            post: # To invoke lambda, the call must be POST.
+              # consumes:
+              #   - "application/json"
+              produces:
+                - "application/json"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              security:
+                - sigv4: []
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations"
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws"
+          "/expense/add":
+            post: # To invoke lambda, the call must be POST.
+              consumes:
+                - "application/json"
+              produces:
+                - "application/json"
+              parameters:
+                - in: "body"
+                  name: "AddExpense"
+                  required: true
+                  schema:
+                    $ref: "#/definitions/AddExpense"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              security:
+                - sigv4: []
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AddExpenseFunction.Arn}/invocations"
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws"
+
+  AddExpenseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: "Add a new expense"
+      CodeUri: src/expense/insert
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role:
+        Fn::GetAtt: ["FunctionRole", "Arn"]
+      # Policies:
+      #   # SOURCE: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-template-list.html#dynamo-db-write-policy
+      #   - DynamoDBWritePolicy:
+      #       TableName: !Ref ExpensesTable
+      Events:
+        AddExpenseAPI:
+          Type: Api
+          Properties:
+            Method: POST # To invoke lambda, the call must be POST.
+            Path: /expense/add
+            RestApiId: !Ref MyAPI
+
+  ListExpensesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: "List Expenses"
+      CodeUri: src/expense/list
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role:
+        Fn::GetAtt: ["FunctionRole", "Arn"]
+      # Policies:
+      #   # SOURCE: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-template-list.html#dynamo-db-read-policy
+      #   - DynamoDBReadPolicy:
+      #       TableName: !Ref ExpensesTable
+      Events:
+        ListExpensesAPI:
+          Type: Api
+          Properties:
+            Method: POST # To invoke lambda, the call must be POST.
+            Path: /expense/list
+            RestApiId: !Ref MyAPI
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref NotificationEmail
+        - Protocol: sms
+          Endpoint: !Ref NotificationSMS
+
+  AlarmAddExpense:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AddExpenseFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 86400
+      Statistic: Sum
+      Threshold: 1.0
+
+  AlarmListExpenses:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ListExpensesFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 86400
+      Statistic: Sum
+      Threshold: 1.0
+
+  ExpensesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub Flutter-AWS-Expense-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: "email"
+          AttributeType: "S"
+        - AttributeName: "date"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "email"
+          KeyType: "HASH"
+        - AttributeName: "date"
+          KeyType: "RANGE"
+
+Outputs:
+  BaseUrl:
+    Description: Base URL for the API Gateway
+    Value: !Sub "https://${MyAPI}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+
+  FunctionIamRole:
+    Description: "Implicit IAM Role"
+    Value: !GetAtt FunctionRole.Arn
+
+  AddExpenseFunction:
+    Description: "AddExpense ARN"
+    Value: !GetAtt AddExpenseFunction.Arn
+
+  ListExpensesFunction:
+    Description: "ListExpenses ARN"
+    Value: !GetAtt ListExpensesFunction.Arn
+
+  DynamoExpensesTable:
+    Description: "ExpensesTable ARN"
+    Value: !GetAtt ExpensesTable.Arn

@@ -1,0 +1,145 @@
+{
+  "info": {
+    "_postman_id": "c6fd829c-4b7e-4429-8337-bd4502bb2650",
+    "name": "Flutter AWS",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "expense",
+      "item": [
+        {
+          "name": "list",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "https://{{API_ID}}.execute-api.{{AWS_REGION}}.amazonaws.com/{{stage}}/expense/list",
+              "protocol": "https",
+              "host": [
+                "{{API_ID}}",
+                "execute-api",
+                "{{AWS_REGION}}",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "{{stage}}",
+                "expense",
+                "list"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "jonasrgoes@gmail.com",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"jonasrgoes@gmail.com\",\n    \"value\": 3.5,\n    \"date\": \"20210818 13:15:22\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://{{API_ID}}.execute-api.{{AWS_REGION}}.amazonaws.com/{{stage}}/expense/add",
+              "protocol": "https",
+              "host": [
+                "{{API_ID}}",
+                "execute-api",
+                "{{AWS_REGION}}",
+                "amazonaws",
+                "com"
+              ],
+              "path": [
+                "{{stage}}",
+                "expense",
+                "add"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "awsv4",
+    "awsv4": [
+      {
+        "key": "region",
+        "value": "{{AWS_REGION}}",
+        "type": "string"
+      },
+      {
+        "key": "secretKey",
+        "value": "{{SecretKey}}",
+        "type": "string"
+      },
+      {
+        "key": "accessKey",
+        "value": "{{AccessKey}}",
+        "type": "string"
+      },
+      {
+        "key": "service",
+        "value": "execute-api",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "stage",
+      "value": "dev"
+    },
+    {
+      "key": "AccessKey",
+      "value": ""
+    },
+    {
+      "key": "SecretKey",
+      "value": ""
+    },
+    {
+      "key": "API_ID",
+      "value": ""
+    },
+    {
+      "key": "AWS_REGION",
+      "value": "us-east-1"
+    }
+  ]
+}
