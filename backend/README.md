@@ -1,3 +1,8 @@
-# AWS Flutter from Scratch
+# Backend
 
-How to create Flutter Apps using AWS as a backend.
+- AWS
+- Cognito
+- API Gateway
+- DynamoDB
+- Lambda
+- Python 3.8
