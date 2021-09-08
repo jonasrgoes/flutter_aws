@@ -1,12 +1,18 @@
 import 'package:flutter_aws/src/models/expense.dart';
 import 'package:flutter_aws/src/models/finance.dart';
 import 'package:flutter_aws/src/models/user.dart';
+import 'package:flutter_aws/src/resources/api.dart';
 import 'package:flutter_aws/src/resources/cognito.dart';
 import 'package:flutter_aws/src/resources/expense.dart';
 
 class Repository {
   static final _authResources = CognitoResources();
   static final _userFinanceResources = ExpenseResources();
+  static final _apiResources = APIResources();
+
+  /// API RESOURCES
+  Future<Map<String, dynamic>?> execute({required String path, required Map<String, dynamic> body}) =>
+      _apiResources.execute(path: path, body: body);
 
   /// AWS COGNITO
   Future<User?> init() => _authResources.init();

@@ -21,7 +21,7 @@ upgrade:
 clean:
 	flutter clean
 
-run:	
+run: clean
 	flutter run -d macos
 
 build:
