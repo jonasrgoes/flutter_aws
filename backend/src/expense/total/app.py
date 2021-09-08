@@ -3,6 +3,8 @@ import json
 import boto3
 import locale
 
+from decimal import Decimal
+
 from botocore.exceptions import ClientError
 from botocore.exceptions import BotoCoreError
 
@@ -38,9 +40,9 @@ def lambda_handler(event, context):
 
         logger.structure_logs(append=True, title="LIST ALL EXPENSES")
 
-        items = list(email)
+        total = sum(email)
 
-        return {"statusCode": 200, "body": "SUCCESS", "items": items}
+        return {"statusCode": 200, "body": "SUCCESS", "total": total}
 
     except Exception as e:
         metrics.add_metric(name="FAILED", unit=MetricUnit.Count, value=1)
@@ -53,10 +55,11 @@ def lambda_handler(event, context):
 
 
 @tracer.capture_method
-def list(email):
+def sum(email):
+
+    total = 0
 
     try:
-
         query = tbl_expenses.query(
             IndexName="emailAndDate",
             Select="ALL_ATTRIBUTES",
@@ -66,7 +69,10 @@ def list(email):
 
         items = query["Items"]
 
-        return items
+        for item in items:
+            total += Decimal(item["value"])
+
+        return total
 
     except (BotoCoreError, ClientError) as e:
         metrics.add_metric(name="BOTO3_ERROR", unit=MetricUnit.Count, value=1)

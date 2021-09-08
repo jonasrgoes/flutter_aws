@@ -29,16 +29,15 @@ metrics = Metrics(namespace="FLUTTER_AWS")
 def lambda_handler(event, context):
 
     try:
-
         data = json.loads(json.dumps(event))
 
         email = data["email"]
 
         metrics.add_dimension(name="environment", value=os.environ["STAGE"])
 
-        logger.structure_logs(append=True, title="LIST ALL EXPENSES")
+        logger.structure_logs(append=True, title="LAST EXPENSE")
 
-        items = list(email)
+        items = last(email)
 
         return {"statusCode": 200, "body": "SUCCESS", "items": items}
 
@@ -53,15 +52,17 @@ def lambda_handler(event, context):
 
 
 @tracer.capture_method
-def list(email):
+def last(email):
 
     try:
-
+        # If ScanIndexForward is true, DynamoDB returns the results in the order in which
+        # they are stored (by sort key value)
         query = tbl_expenses.query(
             IndexName="emailAndDate",
             Select="ALL_ATTRIBUTES",
             KeyConditionExpression=Key("email").eq(email),
             ScanIndexForward=False,
+            Limit=1,
         )
 
         items = query["Items"]

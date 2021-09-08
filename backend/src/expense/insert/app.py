@@ -3,6 +3,7 @@ import json
 import boto3
 import locale
 
+from datetime import datetime
 from decimal import Decimal
 
 from botocore.exceptions import ClientError
@@ -34,9 +35,11 @@ def lambda_handler(event, context):
 
         data = json.loads(json.dumps(event), parse_float=Decimal)
 
+        now = datetime.now()
+
         email = data["email"]
         value = data["value"]
-        date = data["date"]
+        date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         metrics.add_dimension(name="environment", value=os.environ["STAGE"])
 
@@ -68,7 +71,11 @@ def lambda_handler(event, context):
 def insert(email, value, date):
 
     try:
-        tbl_expenses.put_item(Item={"email": email, "value": value, "date": date})
+        tbl_expenses.put_item(
+            Item={"email": email, "value": value, "date": date},
+            ExpressionAttributeNames={"#E": "email", "#D": "date"},
+            ConditionExpression="attribute_not_exists(#E) And attribute_not_exists(#D)",
+        )
     except (BotoCoreError, ClientError) as e:
         metrics.add_metric(name="BOTO3_ERROR", unit=MetricUnit.Count, value=1)
         logger.error(e)

@@ -106,7 +106,12 @@ Resources:
                   - dynamodb:Query
                   - dynamodb:Scan
                   - dynamodb:UpdateItem
-                Resource: !GetAtt ExpensesTable.Arn
+                Resource:
+                  - { "Fn::GetAtt": ["ExpensesTable", "Arn"] }
+                  - Fn::Join:
+                      - "/"
+                      - - { "Fn::GetAtt": ["ExpensesTable", "Arn"] }
+                        - "index/*"
         - PolicyName: Allow-logs
           PolicyDocument:
             Version: "2012-10-17"
@@ -155,19 +160,25 @@ Resources:
           Empty:
             type: "object"
             title: "Empty Schema"
+          Email:
+            type: "object"
+            required:
+              - "email"
+            properties:
+              email:
+                type: "string"
+                pattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
           AddExpense:
             type: "object"
             required:
-              - "date"
               - "email"
               - "value"
             properties:
-              date:
-                type: "string"
-              value:
-                type: "number"
               email:
                 type: "string"
+                pattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
+              value:
+                type: "number"
         paths:
           "/expense/list":
             post: # To invoke lambda, the call must be POST.
@@ -175,6 +186,68 @@ Resources:
               #   - "application/json"
               produces:
                 - "application/json"
+              parameters:
+                - in: "body"
+                  name: "Email"
+                  required: true
+                  schema:
+                    $ref: "#/definitions/Email"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              security:
+                - sigv4: []
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations"
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws"
+          "/expense/last":
+            post: # To invoke lambda, the call must be POST.
+              # consumes:
+              #   - "application/json"
+              produces:
+                - "application/json"
+              parameters:
+                - in: "body"
+                  name: "Email"
+                  required: true
+                  schema:
+                    $ref: "#/definitions/Email"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+              security:
+                - sigv4: []
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations"
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws"
+          "/expense/total":
+            post: # To invoke lambda, the call must be POST.
+              # consumes:
+              #   - "application/json"
+              produces:
+                - "application/json"
+              parameters:
+                - in: "body"
+                  name: "Email"
+                  required: true
+                  schema:
+                    $ref: "#/definitions/Email"
               responses:
                 "200":
                   description: "200 response"
@@ -262,6 +335,44 @@ Resources:
             Path: /expense/list
             RestApiId: !Ref MyAPI
 
+  LastExpenseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: "Last Expense"
+      CodeUri: src/expense/last
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role:
+        Fn::GetAtt: ["FunctionRole", "Arn"]
+      # Policies:
+      #   # SOURCE: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-template-list.html#dynamo-db-read-policy
+      #   - DynamoDBReadPolicy:
+      #       TableName: !Ref ExpensesTable
+      Events:
+        ListExpensesAPI:
+          Type: Api
+          Properties:
+            Method: POST # To invoke lambda, the call must be POST.
+            Path: /expense/last
+            RestApiId: !Ref MyAPI
+
+  TotalSpentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: "Total Spent"
+      CodeUri: src/expense/total
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role:
+        Fn::GetAtt: ["FunctionRole", "Arn"]
+      Events:
+        ListExpensesAPI:
+          Type: Api
+          Properties:
+            Method: POST # To invoke lambda, the call must be POST.
+            Path: /expense/total
+            RestApiId: !Ref MyAPI
+
   AlarmTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -303,6 +414,38 @@ Resources:
       Statistic: Sum
       Threshold: 1.0
 
+  AlarmLastExpense:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref LastExpenseFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 86400
+      Statistic: Sum
+      Threshold: 1.0
+
+  AlarmTotalSpent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref AlarmTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TotalSpentFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 86400
+      Statistic: Sum
+      Threshold: 1.0
+
   ExpensesTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -318,6 +461,15 @@ Resources:
           KeyType: "HASH"
         - AttributeName: "date"
           KeyType: "RANGE"
+      GlobalSecondaryIndexes: # GlobalSecondaryIndexes creates virtual copy of original table, it allows to query based on attribute specified below
+        - IndexName: emailAndDate
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+            - AttributeName: date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL # ALL tells dynamodb which attributes (in this case is status and endingAt) need to keep in the virtual table
 
 Outputs:
   BaseUrl:
@@ -335,6 +487,14 @@ Outputs:
   ListExpensesFunction:
     Description: "ListExpenses ARN"
     Value: !GetAtt ListExpensesFunction.Arn
+
+  LastExpenseFunction:
+    Description: "ListExpenses ARN"
+    Value: !GetAtt LastExpenseFunction.Arn
+
+  TotalSpentFunction:
+    Description: "ListExpenses ARN"
+    Value: !GetAtt TotalSpentFunction.Arn
 
   DynamoExpensesTable:
     Description: "ExpensesTable ARN"

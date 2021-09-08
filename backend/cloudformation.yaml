@@ -102,9 +102,15 @@ Resources:
             - dynamodb:Scan
             - dynamodb:UpdateItem
             Resource:
-              Fn::GetAtt:
+            - Fn::GetAtt:
               - ExpensesTable
               - Arn
+            - Fn::Join:
+              - /
+              - - Fn::GetAtt:
+                  - ExpensesTable
+                  - Arn
+                - index/*
       - PolicyName: Allow-logs
         PolicyDocument:
           Version: '2012-10-17'
@@ -156,24 +162,90 @@ Resources:
           Empty:
             type: object
             title: Empty Schema
+          Email:
+            type: object
+            required:
+            - email
+            properties:
+              email:
+                type: string
+                pattern: ^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$
           AddExpense:
             type: object
             required:
-            - date
             - email
             - value
             properties:
-              date:
-                type: string
-              value:
-                type: number
               email:
                 type: string
+                pattern: ^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$
+              value:
+                type: number
         paths:
           /expense/list:
             post:
               produces:
               - application/json
+              parameters:
+              - in: body
+                name: Email
+                required: true
+                schema:
+                  $ref: '#/definitions/Email'
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - sigv4: []
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations
+                responses:
+                  default:
+                    statusCode: '200'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                type: aws
+          /expense/last:
+            post:
+              produces:
+              - application/json
+              parameters:
+              - in: body
+                name: Email
+                required: true
+                schema:
+                  $ref: '#/definitions/Email'
+              responses:
+                '200':
+                  description: 200 response
+                  schema:
+                    $ref: '#/definitions/Empty'
+              security:
+              - sigv4: []
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations
+                responses:
+                  default:
+                    statusCode: '200'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                type: aws
+          /expense/total:
+            post:
+              produces:
+              - application/json
+              parameters:
+              - in: body
+                name: Email
+                required: true
+                schema:
+                  $ref: '#/definitions/Email'
               responses:
                 '200':
                   description: 200 response
@@ -224,7 +296,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: Add a new expense
-      CodeUri: s3://dev-jonasrgoes/flutter-aws/f0954fc1e8f1f2c81acaa0ade645b89e
+      CodeUri: s3://dev-jonasrgoes/flutter-aws/2e3ba28168e6f5cf953ced65b5ff4a12
       Handler: app.lambda_handler
       Runtime: python3.8
       Role:
@@ -243,7 +315,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: List Expenses
-      CodeUri: s3://dev-jonasrgoes/flutter-aws/33c163a3a716cc1486f50428b53e99a2
+      CodeUri: s3://dev-jonasrgoes/flutter-aws/e8b7e7da21c4f25f4259820e7d7ac31d
       Handler: app.lambda_handler
       Runtime: python3.8
       Role:
@@ -256,6 +328,44 @@ Resources:
           Properties:
             Method: POST
             Path: /expense/list
+            RestApiId:
+              Ref: MyAPI
+  LastExpenseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Last Expense
+      CodeUri: s3://dev-jonasrgoes/flutter-aws/15d8f7652170c214484f2431035429c2
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role:
+        Fn::GetAtt:
+        - FunctionRole
+        - Arn
+      Events:
+        ListExpensesAPI:
+          Type: Api
+          Properties:
+            Method: POST
+            Path: /expense/last
+            RestApiId:
+              Ref: MyAPI
+  TotalSpentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Total Spent
+      CodeUri: s3://dev-jonasrgoes/flutter-aws/33c163a3a716cc1486f50428b53e99a2
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role:
+        Fn::GetAtt:
+        - FunctionRole
+        - Arn
+      Events:
+        ListExpensesAPI:
+          Type: Api
+          Properties:
+            Method: POST
+            Path: /expense/total
             RestApiId:
               Ref: MyAPI
   AlarmTopic:
@@ -300,6 +410,38 @@ Resources:
       Period: 86400
       Statistic: Sum
       Threshold: 1.0
+  AlarmLastExpense:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+      - Ref: AlarmTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: FunctionName
+        Value:
+          Ref: LastExpenseFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 86400
+      Statistic: Sum
+      Threshold: 1.0
+  AlarmTotalSpent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+      - Ref: AlarmTopic
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+      - Name: FunctionName
+        Value:
+          Ref: TotalSpentFunction
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 86400
+      Statistic: Sum
+      Threshold: 1.0
   ExpensesTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -316,6 +458,15 @@ Resources:
         KeyType: HASH
       - AttributeName: date
         KeyType: RANGE
+      GlobalSecondaryIndexes:
+      - IndexName: emailAndDate
+        KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
 Outputs:
   BaseUrl:
     Description: Base URL for the API Gateway
@@ -338,6 +489,18 @@ Outputs:
     Value:
       Fn::GetAtt:
       - ListExpensesFunction
+      - Arn
+  LastExpenseFunction:
+    Description: ListExpenses ARN
+    Value:
+      Fn::GetAtt:
+      - LastExpenseFunction
+      - Arn
+  TotalSpentFunction:
+    Description: ListExpenses ARN
+    Value:
+      Fn::GetAtt:
+      - TotalSpentFunction
       - Arn
   DynamoExpensesTable:
     Description: ExpensesTable ARN
