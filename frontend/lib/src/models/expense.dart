@@ -10,9 +10,9 @@ class ExpenseModel {
         assert(value > 0);
 
   factory ExpenseModel.fromJSON(Map<String, dynamic> json) {
-    String email = (json['email'] as String).trim().toLowerCase();
+    String email = json['email'].trim().toLowerCase();
 
-    double value = double.parse(json['value']);
+    double value = double.parse(json['value'].toString());
 
     // Parses ISO 8601 strings
     DateTime date = DateTime.parse(json['date']);

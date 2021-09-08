@@ -4,17 +4,18 @@ import 'package:flutter_aws/src/models/user.dart';
 import 'package:flutter_aws/src/resources/api.dart';
 import 'package:flutter_aws/src/resources/cognito.dart';
 import 'package:flutter_aws/src/resources/expense.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Repository {
   static final _authResources = CognitoResources();
   static final _expenseResources = ExpenseResources();
   static final _apiResources = APIResources();
 
-  /// API RESOURCES
+  // API RESOURCES
   Future<Map<String, dynamic>?> execute({required String path, required Map<String, dynamic> body}) =>
       _apiResources.execute(path: path, body: body);
 
-  /// AWS COGNITO
+  // AWS Cognito Authentication Resources
   Future<User?> init() => _authResources.init();
 
   Future<User?> getCurrentUser() => _authResources.getCurrentUser();
@@ -34,12 +35,13 @@ class Repository {
 
   Future<String?> getUserUID() => _authResources.getUserUID();
 
-  /// AWS DynamoDB
+  // AWS DynamoDB Expense Resources
   Stream<FinanceModel> userFinanceDoc(String userUID) => _expenseResources.userFinanceDoc(userUID);
 
-  Stream<double> setUserBudget(String userUID, double? budget) => _expenseResources.setUserBudget(userUID, budget!);
+  Future<double> setUserBudget(SharedPreferences prefs, double? budget) =>
+      _expenseResources.setUserBudget(prefs, budget!);
 
-  Stream<double> updateTotal(String userUID) => _expenseResources.total(userUID);
+  // Stream<double> updateTotal(String userUID) => _expenseResources.total(userUID);
 
   Future<void> addNewExpense(ExpenseModel expense) => _expenseResources.add(expense);
 

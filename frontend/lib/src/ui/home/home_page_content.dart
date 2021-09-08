@@ -11,6 +11,7 @@ import 'package:flutter_aws/src/utils/values/string_constants.dart';
 import 'package:flutter_aws/src/ui/widgets/actions/button_transparent_main.dart';
 import 'package:flutter_aws/src/ui/widgets/forms/form_field_main.dart';
 import 'package:flutter_aws/src/ui/home/finance_history_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const double minTop = 145;
 const double maxQuickActionsMargin = 50;
@@ -28,6 +29,8 @@ class _HomePageContentState extends State<HomePageContent> with SingleTickerProv
 
   UserFinanceBloc? _userFinanceBloc;
 
+  late SharedPreferences _prefs;
+
   bool _hideOptions = true;
   bool _isUserBudgetAlreadySet = false;
 
@@ -42,6 +45,10 @@ class _HomePageContentState extends State<HomePageContent> with SingleTickerProv
   @override
   void initState() {
     super.initState();
+
+    SharedPreferences.getInstance().then((prefs) {
+      _prefs = prefs;
+    });
 
     _controller = AnimationController(
       vsync: this,
@@ -363,43 +370,37 @@ class _HomePageContentState extends State<HomePageContent> with SingleTickerProv
                                       child: StreamBuilder(
                                         stream: _userFinanceBloc!.lastExpense(userUID.data),
                                         builder: (context, snapshot) {
-                                          if (snapshot.hasData) {
-                                            List<ExpenseModel> expensesList = snapshot.data as List<ExpenseModel>;
+                                          if (snapshot.hasData && snapshot.data != null) {
+                                            ExpenseModel lastExpense = snapshot.data as ExpenseModel;
 
-                                            if (expensesList.isNotEmpty) {
-                                              return Center(
-                                                child: Column(
-                                                  children: <Widget>[
-                                                    const Text(
-                                                      StringConstants.mostRecentExpense,
-                                                      style: TextStyle(
-                                                          color: Colors.black87,
-                                                          fontWeight: FontWeight.w600,
-                                                          fontSize: 15.0),
-                                                    ),
-                                                    Text(
-                                                      "R\$ " + expensesList[0].value.toString(),
-                                                      style: const TextStyle(
-                                                          color: Colors.black87,
-                                                          fontWeight: FontWeight.w600,
-                                                          fontSize: 15.0),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            } else {
-                                              return const Center(
-                                                child: Text(
-                                                  StringConstants.noRecentExpenses,
-                                                  style: TextStyle(
-                                                      color: Colors.black87,
-                                                      fontWeight: FontWeight.w600,
-                                                      fontSize: 15.0),
-                                                ),
-                                              );
-                                            }
+                                            return Center(
+                                              child: Column(
+                                                children: <Widget>[
+                                                  const Text(
+                                                    StringConstants.mostRecentExpense,
+                                                    style: TextStyle(
+                                                        color: Colors.black87,
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 15.0),
+                                                  ),
+                                                  Text(
+                                                    "R\$ " + lastExpense.value.toString(),
+                                                    style: const TextStyle(
+                                                        color: Colors.black87,
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 15.0),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
                                           } else {
-                                            return Container();
+                                            return const Center(
+                                              child: Text(
+                                                StringConstants.noRecentExpenses,
+                                                style: TextStyle(
+                                                    color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 15.0),
+                                              ),
+                                            );
                                           }
                                         },
                                       ),
@@ -426,7 +427,8 @@ class _HomePageContentState extends State<HomePageContent> with SingleTickerProv
                                       callback: () async {
                                         _insertNewQuickActionModal(context, "Set monthly Budget", () {
                                           if (_userFinanceBloc!.validateFinance()) {
-                                            _userFinanceBloc!.setUserBudget();
+                                            _userFinanceBloc!.setUserBudget(_prefs);
+                                            _userFinanceBloc!.userFinanceDoc(userUID.data);
                                             Navigator.of(context).pop();
                                           } else {
                                             debugPrint('validateFinance failed!');
@@ -491,7 +493,8 @@ class _HomePageContentState extends State<HomePageContent> with SingleTickerProv
                       callback: () {
                         _insertNewQuickActionModal(context, StringConstants.setMonthlyBudget, () {
                           if (_userFinanceBloc!.validateFinance()) {
-                            _userFinanceBloc!.setUserBudget();
+                            _userFinanceBloc!.setUserBudget(_prefs);
+                            // _userFinanceBloc!.userFinanceDoc(userUID.data);
                             Navigator.of(context).pop();
                           } else {
                             debugPrint('validateFinance failed!');

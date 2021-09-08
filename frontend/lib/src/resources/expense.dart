@@ -1,41 +1,68 @@
 import 'package:flutter_aws/src/models/expense.dart';
 import 'package:flutter_aws/src/models/finance.dart';
 import 'package:flutter_aws/src/resources/repository.dart';
+import 'package:flutter_aws/src/utils/prefs_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ExpenseResources {
   late Repository _repository;
 
+  late SharedPreferences _sharedPreferences;
+
   ExpenseResources() {
     _repository = Repository();
+
+    SharedPreferences.getInstance().then((prefs) {
+      _sharedPreferences = prefs;
+    });
   }
 
   Stream<FinanceModel> userFinanceDoc(String userUID) async* {
-    yield FinanceModel(totalSpent: 150.0, budget: 1500.0);
+    double totalSpent = await total(userUID);
+
+    double? budget = getUserBudget();
+
+    yield FinanceModel(totalSpent: totalSpent, budget: budget!);
   }
 
-  Stream<double> setUserBudget(String userUID, double budget) async* {
-    yield 1250.40;
+  Future<double> setUserBudget(SharedPreferences prefs, double budget) async {
+    PrefsManager prefsManager = PrefsManager();
+    prefsManager.setUserBudget(prefs, budget);
+
+    return budget;
   }
 
-  Stream<double> total(String userUID) async* {
+  double? getUserBudget() {
+    PrefsManager prefsManager = PrefsManager();
+    var budget = prefsManager.getUserBudget(_sharedPreferences);
+    return budget;
+  }
+
+  Future<double> total(String userUID) async {
+    double _total = 0;
+
     const path = '/expense/total';
 
     var body = Map<String, String>.from({"email": userUID});
 
-    var jsonResponse = await _repository.execute(path: path, body: body);
+    try {
+      var jsonResponse = await _repository.execute(path: path, body: body);
 
-    if (jsonResponse?['statusCode'] == '200') {
-      var jsonItems = jsonResponse?['items'];
-
-      if (jsonItems.length > 0) {
-        yield double.parse(jsonItems[0]['total']);
+      if (jsonResponse!['statusCode'] == 200) {
+        if (jsonResponse.containsKey('total')) {
+          _total = double.parse(jsonResponse['total'].toString());
+        } else {
+          _total = -1;
+        }
       } else {
-        yield 0;
+        // An internal server error ocurred
+        throw Exception('Expense total method error: ${jsonResponse['error']}');
       }
-    } else {
-      // An internal server error ocurred
-      throw Exception('Expense last method error: ${jsonResponse?['error']}');
+    } catch (e) {
+      print(e);
+      _total = -3;
     }
+    return _total;
   }
 
   Future<void> add(ExpenseModel expense) async {
@@ -46,10 +73,10 @@ class ExpenseResources {
     var jsonResponse = await _repository.execute(path: path, body: body);
 
     // Checking API Response Code
-    if (jsonResponse?['statusCode'] == '200') {
+    if (jsonResponse!['statusCode'] == 200) {
     } else {
       // An internal server error ocurred
-      throw Exception('Expense add method error: ${jsonResponse?['error']}');
+      throw Exception('Expense add method error: ${jsonResponse['error']}');
     }
   }
 
@@ -60,19 +87,23 @@ class ExpenseResources {
 
     var body = Map<String, String>.from({"email": userUID});
 
-    var jsonResponse = await _repository.execute(path: path, body: body);
+    try {
+      var jsonResponse = await _repository.execute(path: path, body: body);
 
-    if (jsonResponse?['statusCode'] == '200') {
-      var jsonItems = jsonResponse?['items'];
+      if (jsonResponse!['statusCode'] == 200) {
+        var jsonItems = jsonResponse['items'];
 
-      for (int i = 0; i < jsonItems.length; i++) {
-        expensesList.add(ExpenseModel.fromJSON(jsonItems[i] as Map<String, dynamic>));
+        for (int i = 0; i < jsonItems.length; i++) {
+          expensesList.add(ExpenseModel.fromJSON(jsonItems[i] as Map<String, dynamic>));
+        }
+
+        yield expensesList;
+      } else {
+        // An internal server error ocurred
+        throw Exception('Expenses list method error: ${jsonResponse['error']}');
       }
-
-      yield expensesList;
-    } else {
-      // An internal server error ocurred
-      throw Exception('Expenses list method error: ${jsonResponse?['error']}');
+    } catch (e) {
+      print(e);
     }
   }
 
@@ -83,8 +114,8 @@ class ExpenseResources {
 
     var jsonResponse = await _repository.execute(path: path, body: body);
 
-    if (jsonResponse?['statusCode'] == '200') {
-      var jsonItems = jsonResponse?['items'];
+    if (jsonResponse!['statusCode'] == 200) {
+      var jsonItems = jsonResponse['items'];
 
       if (jsonItems.length > 0) {
         yield ExpenseModel.fromJSON(jsonItems[0] as Map<String, dynamic>);
@@ -93,7 +124,7 @@ class ExpenseResources {
       }
     } else {
       // An internal server error ocurred
-      throw Exception('Expense last method error: ${jsonResponse?['error']}');
+      throw Exception('Expense last method error: ${jsonResponse['error']}');
     }
   }
 }

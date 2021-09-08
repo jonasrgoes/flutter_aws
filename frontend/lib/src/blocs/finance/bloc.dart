@@ -45,11 +45,11 @@ class UserFinanceBloc implements Bloc {
 
   Stream<FinanceModel> userFinanceDoc(String? userUID) => _repository.userFinanceDoc(userUID!);
 
-  Future<void> setUserBudget() async {
+  Future<void> setUserBudget(SharedPreferences prefs) async {
     String? userUID = await getUserUID();
 
     // TODO: returns Stream<double>
-    _repository.setUserBudget(userUID!, double.tryParse(_financeValue.value));
+    _repository.setUserBudget(prefs, double.tryParse(_financeValue.value));
   }
 
   Stream<List<ExpenseModel>> expenseList(String? userUID) => _repository.expensesList(userUID!);
@@ -65,7 +65,7 @@ class UserFinanceBloc implements Bloc {
     await _repository.addNewExpense(ExpenseModel(email: userUID!, value: double.parse(_financeValue.value)));
 
     // TODO: returns Stream<double>
-    _repository.updateTotal(userUID);
+    // _repository.updateTotal(userUID);
   }
 
   @override

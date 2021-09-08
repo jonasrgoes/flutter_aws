@@ -82,26 +82,21 @@ class _FinanceHistoryPageState extends State<FinanceHistoryPage> {
                             return Center(
                               child: Text(snapshot.error.toString()),
                             );
-                          } else if (snapshot.hasData) {
+                          } else if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
                             List<ExpenseModel> expensesList = snapshot.data as List<ExpenseModel>;
 
-                            if (expensesList.isNotEmpty) {
-                              return ListView.builder(
-                                  itemCount: expensesList.length,
-                                  itemBuilder: (context, position) {
-                                    return ExpenseCard(
-                                        value: expensesList[position].value.toString(),
-                                        isLastOne: position == expensesList.length - 1);
-                                  });
-                            } else {
-                              // No data -- Empty collection
-                              return const Center(
-                                child: Text(StringConstants.noExpenses),
-                              );
-                            }
+                            return ListView.builder(
+                                itemCount: expensesList.length,
+                                itemBuilder: (context, position) {
+                                  return ExpenseCard(
+                                      value: expensesList[position].value.toString(),
+                                      isLastOne: position == expensesList.length - 1);
+                                });
                           } else {
                             // No data -- Error
-                            return Container();
+                            return const Center(
+                              child: Text(StringConstants.noExpenses),
+                            );
                           }
                         });
                   }
