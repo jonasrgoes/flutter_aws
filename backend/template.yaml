@@ -229,7 +229,7 @@ Resources:
                 - sigv4: []
               x-amazon-apigateway-integration:
                 httpMethod: "POST"
-                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations"
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LastExpenseFunction.Arn}/invocations"
                 responses:
                   default:
                     statusCode: "200"
@@ -257,7 +257,7 @@ Resources:
                 - sigv4: []
               x-amazon-apigateway-integration:
                 httpMethod: "POST"
-                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations"
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TotalSpentFunction.Arn}/invocations"
                 responses:
                   default:
                     statusCode: "200"

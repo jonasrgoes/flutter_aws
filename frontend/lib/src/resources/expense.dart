@@ -17,15 +17,31 @@ class ExpenseResources {
     yield 1250.40;
   }
 
-  Stream<double> updateTotal(String userUID) async* {
-    yield 255.89;
+  Stream<double> total(String userUID) async* {
+    const path = '/expense/total';
+
+    var body = Map<String, String>.from({"email": userUID});
+
+    var jsonResponse = await _repository.execute(path: path, body: body);
+
+    if (jsonResponse?['statusCode'] == '200') {
+      var jsonItems = jsonResponse?['items'];
+
+      if (jsonItems.length > 0) {
+        yield double.parse(jsonItems[0]['total']);
+      } else {
+        yield 0;
+      }
+    } else {
+      // An internal server error ocurred
+      throw Exception('Expense last method error: ${jsonResponse?['error']}');
+    }
   }
 
-  Future<void> addNewExpense(ExpenseModel expense) async {
+  Future<void> add(ExpenseModel expense) async {
     const path = '/expense/add';
 
-    var body = Map<String, dynamic>.from(
-        {"email": expense.email, "value": expense.value, "date": expense.date.toIso8601String()});
+    var body = Map<String, dynamic>.from({"email": expense.email, "value": expense.value});
 
     var jsonResponse = await _repository.execute(path: path, body: body);
 
@@ -33,10 +49,11 @@ class ExpenseResources {
     if (jsonResponse?['statusCode'] == '200') {
     } else {
       // An internal server error ocurred
+      throw Exception('Expense add method error: ${jsonResponse?['error']}');
     }
   }
 
-  Stream<List<ExpenseModel>> expensesList(String userUID) async* {
+  Stream<List<ExpenseModel>> list(String userUID) async* {
     List<ExpenseModel> expensesList = [];
 
     const path = '/expense/list';
@@ -55,12 +72,28 @@ class ExpenseResources {
       yield expensesList;
     } else {
       // An internal server error ocurred
-      throw Exception('Expenses list error: ${jsonResponse?['error']}');
+      throw Exception('Expenses list method error: ${jsonResponse?['error']}');
     }
   }
 
-  Stream<ExpenseModel> lastExpense(String userUID) async* {
-    // TODO: Only example
-    yield ExpenseModel.fromJSON({'email': '555@gmail.com', 'value': 8.9, 'date': DateTime.now().toIso8601String()});
+  Stream<ExpenseModel?> last(String userUID) async* {
+    const path = '/expense/last';
+
+    var body = Map<String, String>.from({"email": userUID});
+
+    var jsonResponse = await _repository.execute(path: path, body: body);
+
+    if (jsonResponse?['statusCode'] == '200') {
+      var jsonItems = jsonResponse?['items'];
+
+      if (jsonItems.length > 0) {
+        yield ExpenseModel.fromJSON(jsonItems[0] as Map<String, dynamic>);
+      } else {
+        yield null;
+      }
+    } else {
+      // An internal server error ocurred
+      throw Exception('Expense last method error: ${jsonResponse?['error']}');
+    }
   }
 }

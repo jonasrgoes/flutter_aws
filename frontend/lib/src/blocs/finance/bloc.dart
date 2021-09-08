@@ -54,7 +54,7 @@ class UserFinanceBloc implements Bloc {
 
   Stream<List<ExpenseModel>> expenseList(String? userUID) => _repository.expensesList(userUID!);
 
-  Stream<ExpenseModel> lastExpense(String? userUID) => _repository.lastExpense(userUID!);
+  Stream<ExpenseModel?> lastExpense(String? userUID) => _repository.lastExpense(userUID!);
 
   Future<void> addNewExpense() async {
     String? userUID = await getUserUID();
@@ -62,8 +62,7 @@ class UserFinanceBloc implements Bloc {
     print('userUID $userUID');
     print('Value: ${double.tryParse(_financeValue.value)}');
 
-    await _repository
-        .addNewExpense(ExpenseModel(email: userUID!, value: double.parse(_financeValue.value), date: DateTime.now()));
+    await _repository.addNewExpense(ExpenseModel(email: userUID!, value: double.parse(_financeValue.value)));
 
     // TODO: returns Stream<double>
     _repository.updateTotal(userUID);

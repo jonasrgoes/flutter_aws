@@ -229,7 +229,7 @@ Resources:
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LastExpenseFunction.Arn}/invocations
                 responses:
                   default:
                     statusCode: '200'
@@ -256,7 +256,7 @@ Resources:
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListExpensesFunction.Arn}/invocations
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TotalSpentFunction.Arn}/invocations
                 responses:
                   default:
                     statusCode: '200'
@@ -353,7 +353,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: Total Spent
-      CodeUri: s3://dev-jonasrgoes/flutter-aws/33c163a3a716cc1486f50428b53e99a2
+      CodeUri: s3://dev-jonasrgoes/flutter-aws/615bd43b73779c58fbb18878b7eef124
       Handler: app.lambda_handler
       Runtime: python3.8
       Role:

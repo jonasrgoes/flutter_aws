@@ -7,7 +7,7 @@ import 'package:flutter_aws/src/resources/expense.dart';
 
 class Repository {
   static final _authResources = CognitoResources();
-  static final _userFinanceResources = ExpenseResources();
+  static final _expenseResources = ExpenseResources();
   static final _apiResources = APIResources();
 
   /// API RESOURCES
@@ -35,15 +35,15 @@ class Repository {
   Future<String?> getUserUID() => _authResources.getUserUID();
 
   /// AWS DynamoDB
-  Stream<FinanceModel> userFinanceDoc(String userUID) => _userFinanceResources.userFinanceDoc(userUID);
+  Stream<FinanceModel> userFinanceDoc(String userUID) => _expenseResources.userFinanceDoc(userUID);
 
-  Stream<double> setUserBudget(String userUID, double? budget) => _userFinanceResources.setUserBudget(userUID, budget!);
+  Stream<double> setUserBudget(String userUID, double? budget) => _expenseResources.setUserBudget(userUID, budget!);
 
-  Stream<double> updateTotal(String userUID) => _userFinanceResources.updateTotal(userUID);
+  Stream<double> updateTotal(String userUID) => _expenseResources.total(userUID);
 
-  Future<void> addNewExpense(ExpenseModel expense) => _userFinanceResources.addNewExpense(expense);
+  Future<void> addNewExpense(ExpenseModel expense) => _expenseResources.add(expense);
 
-  Stream<List<ExpenseModel>> expensesList(String userUID) => _userFinanceResources.expensesList(userUID);
+  Stream<List<ExpenseModel>> expensesList(String userUID) => _expenseResources.list(userUID);
 
-  Stream<ExpenseModel> lastExpense(String userUID) => _userFinanceResources.lastExpense(userUID);
+  Stream<ExpenseModel?> lastExpense(String userUID) => _expenseResources.last(userUID);
 }
