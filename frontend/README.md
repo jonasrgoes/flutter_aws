@@ -25,7 +25,7 @@
 - 4th Layer: RESOURCE
 - 5th Layer: AWS BACKEND
 
-## DEBUG
+## Troubleshooting
 
 1. Connection failed
 
