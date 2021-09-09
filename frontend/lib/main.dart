@@ -10,7 +10,5 @@ Future<void> main() async {
   // flutter_dotenv: loading environment variables...
   await dotenv.load(fileName: "assets/.env", mergeWith: Platform.environment);
 
-  print('Env map: ${dotenv.env.toString()}');
-
   runApp(const FlutterAWS());
 }

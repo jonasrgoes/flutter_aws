@@ -166,6 +166,8 @@ class _HomePageContentState extends State<HomePageContent> with SingleTickerProv
   Widget build(BuildContext context) {
     double maxTop = MediaQuery.of(context).size.height * .9;
 
+    _userFinanceBloc!.updateFinanceDoc();
+
     return AnimatedBuilder(
       animation: _controller!,
       builder: (context, child) {
@@ -273,7 +275,7 @@ class _HomePageContentState extends State<HomePageContent> with SingleTickerProv
                         );
                       } else {
                         return StreamBuilder<FinanceModel>(
-                          stream: _userFinanceBloc!.userFinanceDoc(userUID.data),
+                          stream: _userFinanceBloc!.financeDoc,
                           builder: (context, snapshot) {
                             debugPrint('totalSpent snapshot.hasData: ${snapshot.hasData}');
                             debugPrint('totalSpent snapshot.data: ${snapshot.data.toString()}');
@@ -428,7 +430,6 @@ class _HomePageContentState extends State<HomePageContent> with SingleTickerProv
                                         _insertNewQuickActionModal(context, "Set monthly Budget", () {
                                           if (_userFinanceBloc!.validateFinance()) {
                                             _userFinanceBloc!.setUserBudget(_prefs);
-                                            _userFinanceBloc!.userFinanceDoc(userUID.data);
                                             Navigator.of(context).pop();
                                           } else {
                                             debugPrint('validateFinance failed!');

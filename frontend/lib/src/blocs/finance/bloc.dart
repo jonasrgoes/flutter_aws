@@ -14,6 +14,13 @@ import 'package:flutter_aws/src/resources/repository.dart';
 
 class UserFinanceBloc implements Bloc {
   final _repository = Repository();
+
+  final _financeDoc = BehaviorSubject<FinanceModel>();
+
+  Function(FinanceModel) get changeFinance => _financeDoc.sink.add;
+
+  Stream<FinanceModel> get financeDoc => _financeDoc.stream;
+
   final _financeValue = BehaviorSubject<String>();
 
   Stream<String> get financeValue => _financeValue.stream.transform(_validateFinanceValue);
@@ -39,17 +46,14 @@ class UserFinanceBloc implements Bloc {
   String getCurrentUserDisplayNameFromPrefs(SharedPreferences prefs) {
     PrefsManager prefsMang = PrefsManager();
     String? displayName = prefsMang.getCurrentUserDisplayName(prefs);
-    print("CURRENT DISPLAYNAME: " + displayName!);
-    return displayName;
+
+    return displayName!;
   }
 
-  Stream<FinanceModel> userFinanceDoc(String? userUID) => _repository.userFinanceDoc(userUID!);
-
   Future<void> setUserBudget(SharedPreferences prefs) async {
-    String? userUID = await getUserUID();
-
-    // TODO: returns Stream<double>
     _repository.setUserBudget(prefs, double.tryParse(_financeValue.value));
+
+    await updateFinanceDoc();
   }
 
   Stream<List<ExpenseModel>> expenseList(String? userUID) => _repository.expensesList(userUID!);
@@ -59,18 +63,26 @@ class UserFinanceBloc implements Bloc {
   Future<void> addNewExpense() async {
     String? userUID = await getUserUID();
 
-    print('userUID $userUID');
-    print('Value: ${double.tryParse(_financeValue.value)}');
-
     await _repository.addNewExpense(ExpenseModel(email: userUID!, value: double.parse(_financeValue.value)));
 
-    // TODO: returns Stream<double>
-    // _repository.updateTotal(userUID);
+    await updateFinanceDoc();
+  }
+
+  Future<void> updateFinanceDoc() async {
+    String? userUID = await getUserUID();
+
+    double totalSpent = await _repository.totalSpent(userUID!);
+
+    double budget = _repository.budget(userUID);
+
+    changeFinance(FinanceModel.fromJSON({"totalSpent": totalSpent.toString(), "budget": budget.toString()}));
   }
 
   @override
   void dispose() async {
     await _financeValue.drain();
     _financeValue.close();
+    await _financeDoc.drain();
+    _financeDoc.close();
   }
 }

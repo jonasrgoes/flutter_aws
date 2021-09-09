@@ -1,5 +1,4 @@
 import 'package:flutter_aws/src/models/expense.dart';
-import 'package:flutter_aws/src/models/finance.dart';
 import 'package:flutter_aws/src/resources/repository.dart';
 import 'package:flutter_aws/src/utils/prefs_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,14 +16,6 @@ class ExpenseResources {
     });
   }
 
-  Stream<FinanceModel> userFinanceDoc(String userUID) async* {
-    double totalSpent = await total(userUID);
-
-    double? budget = getUserBudget();
-
-    yield FinanceModel(totalSpent: totalSpent, budget: budget!);
-  }
-
   Future<double> setUserBudget(SharedPreferences prefs, double budget) async {
     PrefsManager prefsManager = PrefsManager();
     prefsManager.setUserBudget(prefs, budget);
@@ -32,13 +23,17 @@ class ExpenseResources {
     return budget;
   }
 
-  double? getUserBudget() {
+  double getUserBudget() {
     PrefsManager prefsManager = PrefsManager();
     var budget = prefsManager.getUserBudget(_sharedPreferences);
-    return budget;
+    if (budget == null) {
+      return 0;
+    } else {
+      return budget;
+    }
   }
 
-  Future<double> total(String userUID) async {
+  Future<double> totalSpent(String userUID) async {
     double _total = 0;
 
     const path = '/expense/total';

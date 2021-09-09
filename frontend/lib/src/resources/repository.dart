@@ -1,5 +1,4 @@
 import 'package:flutter_aws/src/models/expense.dart';
-import 'package:flutter_aws/src/models/finance.dart';
 import 'package:flutter_aws/src/models/user.dart';
 import 'package:flutter_aws/src/resources/api.dart';
 import 'package:flutter_aws/src/resources/cognito.dart';
@@ -11,7 +10,7 @@ class Repository {
   static final _expenseResources = ExpenseResources();
   static final _apiResources = APIResources();
 
-  // API RESOURCES
+  // API Resources
   Future<Map<String, dynamic>?> execute({required String path, required Map<String, dynamic> body}) =>
       _apiResources.execute(path: path, body: body);
 
@@ -36,12 +35,12 @@ class Repository {
   Future<String?> getUserUID() => _authResources.getUserUID();
 
   // AWS DynamoDB Expense Resources
-  Stream<FinanceModel> userFinanceDoc(String userUID) => _expenseResources.userFinanceDoc(userUID);
-
   Future<double> setUserBudget(SharedPreferences prefs, double? budget) =>
       _expenseResources.setUserBudget(prefs, budget!);
 
-  // Stream<double> updateTotal(String userUID) => _expenseResources.total(userUID);
+  Future<double> totalSpent(String userUID) => _expenseResources.totalSpent(userUID);
+
+  double budget(String userUID) => _expenseResources.getUserBudget();
 
   Future<void> addNewExpense(ExpenseModel expense) => _expenseResources.add(expense);
 
